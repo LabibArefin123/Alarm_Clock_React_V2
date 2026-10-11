@@ -1,49 +1,129 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Platform, FlatList } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import PushNotificationIOS from '@react-native-community/push-notification-ios';
-import { ToastAndroid } from 'react-native';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  FlatList,
+  Platform,
+  Alert,
+} from "react-native";
+
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Notifications from "expo-notifications";
+
+interface AlarmItem {
+  id: string;
+  time: Date;
+  notificationId: string;
+}
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export function Alarm() {
-  const [alarms, setAlarms] = useState([]);
+  const [alarms, setAlarms] = useState<AlarmItem[]>([]);
   const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      PushNotificationIOS.requestPermissions();
+    async function setupNotifications() {
+      const { status } = await Notifications.requestPermissionsAsync();
+
+      if (Platform.OS === "android") {
+        await Notifications.setNotificationChannelAsync("alarms", {
+          name: "Alarms",
+          importance: Notifications.AndroidImportance.MAX,
+          sound: "default",
+          vibrationPattern: [0, 500, 250, 500],
+        });
+      }
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Please allow notifications to receive alarm alerts.",
+        );
+      }
     }
+
+    setupNotifications();
   }, []);
 
-  const addAlarm = (date) => {
-    const newAlarm = { id: Date.now(), time: date };
-    setAlarms([...alarms, newAlarm]);
+  const addAlarm = async (selectedTime: Date) => {
+    const alarmDate = new Date();
 
-    if (Platform.OS === 'ios') {
-      PushNotificationIOS.scheduleLocalNotification({
-        fireDate: date.toISOString(),
-        alertTitle: 'Alarm',
-        alertBody: 'Your alarm is ringing!',
-        soundName: 'default',
+    alarmDate.setHours(
+      selectedTime.getHours(),
+      selectedTime.getMinutes(),
+      0,
+      0,
+    );
+
+    // If selected time has already passed, schedule for tomorrow.
+    if (alarmDate.getTime() <= Date.now()) {
+      alarmDate.setDate(alarmDate.getDate() + 1);
+    }
+
+    try {
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Alarm Clock",
+          body: "Your alarm is ringing!",
+          sound: "default",
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: alarmDate,
+          channelId: "alarms",
+        },
       });
-    } else {
-      // For Android, we're using a simple toast notification
-      const timeUntilAlarm = date.getTime() - Date.now();
-      setTimeout(() => {
-        ToastAndroid.show('Alarm!', ToastAndroid.LONG);
-      }, timeUntilAlarm);
+
+      const newAlarm: AlarmItem = {
+        id: Date.now().toString(),
+        time: alarmDate,
+        notificationId,
+      };
+
+      setAlarms((previous) => [...previous, newAlarm]);
+
+      Alert.alert("Alarm Set", "Your alarm has been scheduled!");
+    } catch (error) {
+      console.error("Alarm scheduling error:", error);
+      Alert.alert("Error", "Unable to schedule your alarm.");
     }
   };
 
-  const onDateChange = (event, selectedDate) => {
+  const onDateChange = (event: any, selectedDate?: Date) => {
     setShowPicker(false);
-    if (selectedDate) {
+
+    if (event.type === "set" && selectedDate) {
       addAlarm(selectedDate);
+    }
+  };
+
+  const deleteAlarm = async (id: string) => {
+    const alarm = alarms.find((item) => item.id === id);
+
+    if (alarm) {
+      await Notifications.cancelScheduledNotificationAsync(
+        alarm.notificationId,
+      );
+
+      setAlarms((previous) => previous.filter((item) => item.id !== id));
     }
   };
 
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>My Alarms</Text>
+
       <Button title="Add Alarm" onPress={() => setShowPicker(true)} />
+
       {showPicker && (
         <DateTimePicker
           value={new Date()}
@@ -53,13 +133,28 @@ export function Alarm() {
           onChange={onDateChange}
         />
       )}
+
       <FlatList
         data={alarms}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No alarms scheduled yet.</Text>
+        }
         renderItem={({ item }) => (
-          <Text style={styles.alarmItem}>
-            {item.time.toLocaleTimeString()}
-          </Text>
+          <View style={styles.alarmItem}>
+            <Text style={styles.alarmTime}>
+              {item.time.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+
+            <Button
+              title="Delete"
+              color="#dc3545"
+              onPress={() => deleteAlarm(item.id)}
+            />
+          </View>
         )}
       />
     </View>
@@ -69,13 +164,30 @@ export function Alarm() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
+    backgroundColor: "#F5F7FB",
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "bold",
+    marginBottom: 25,
   },
   alarmItem: {
-    fontSize: 18,
-    marginVertical: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 18,
+    marginTop: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+  },
+  alarmTime: {
+    fontSize: 24,
+    fontWeight: "600",
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 40,
+    color: "#888",
   },
 });
-

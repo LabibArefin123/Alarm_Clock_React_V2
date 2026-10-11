@@ -1,63 +1,96 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, TextInput } from 'react-native';
+import React, { useState, useEffect } from "react";
+
+import { View, Text, Button, StyleSheet, TextInput, Alert } from "react-native";
 
 export function Timer() {
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
-  const [inputMinutes, setInputMinutes] = useState('');
+  const [inputMinutes, setInputMinutes] = useState("");
 
   useEffect(() => {
-    let interval = null;
-    if (isActive) {
-      interval = setInterval(() => {
-        setSeconds(seconds => {
-          if (seconds > 0) {
-            return seconds - 1;
-          } else {
-            setIsActive(false);
-            return 0;
-          }
-        });
-      }, 1000);
-    } else if (!isActive && seconds !== 0) {
-      clearInterval(interval);
-    }
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      setSeconds((previous) => {
+        if (previous <= 1) {
+          clearInterval(interval);
+          setIsActive(false);
+
+          Alert.alert("Timer Finished", "Your countdown has completed!");
+
+          return 0;
+        }
+
+        return previous - 1;
+      });
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [isActive, seconds]);
+  }, [isActive]);
 
   const startTimer = () => {
-    if (inputMinutes) {
-      setSeconds(parseInt(inputMinutes) * 60);
-      setInputMinutes('');
+    const minutes = Number(inputMinutes);
+
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      Alert.alert("Invalid Time", "Please enter valid minutes.");
+      return;
     }
+
+    setSeconds(Math.floor(minutes * 60));
+    setInputMinutes("");
     setIsActive(true);
   };
 
-  const resetTimer = () => {
-    setSeconds(0);
-    setIsActive(false);
+  const toggleTimer = () => {
+    if (seconds <= 0) {
+      Alert.alert("Timer", "Please set a timer first.");
+      return;
+    }
+
+    setIsActive((previous) => !previous);
   };
 
-  const formatTime = (time) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = time % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const resetTimer = () => {
+    setIsActive(false);
+    setSeconds(0);
+    setInputMinutes("");
+  };
+
+  const formatTime = (time: number) => {
+    const hours = Math.floor(time / 3600);
+    const minutes = Math.floor((time % 3600) / 60);
+    const remainingSeconds = time % 60;
+
+    return [hours, minutes, remainingSeconds]
+      .map((value) => value.toString().padStart(2, "0"))
+      .join(":");
   };
 
   return (
     <View style={styles.container}>
+      <Text style={styles.heading}>Countdown Timer</Text>
+
       <Text style={styles.timerText}>{formatTime(seconds)}</Text>
+
       <TextInput
         style={styles.input}
-        onChangeText={setInputMinutes}
         value={inputMinutes}
+        onChangeText={setInputMinutes}
         placeholder="Enter minutes"
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
+        editable={!isActive}
       />
+
       <View style={styles.buttonContainer}>
-        <Button title={isActive ? 'Pause' : 'Start'} onPress={() => setIsActive(!isActive)} />
+        <Button
+          title={isActive ? "Pause" : "Resume"}
+          onPress={toggleTimer}
+          disabled={seconds === 0}
+        />
+
         <Button title="Reset" onPress={resetTimer} />
-        <Button title="Set" onPress={startTimer} />
+
+        <Button title="Set Timer" onPress={startTimer} disabled={isActive} />
       </View>
     </View>
   );
@@ -66,26 +99,35 @@ export function Timer() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
+    backgroundColor: "#F5F7FB",
+  },
+  heading: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 35,
   },
   timerText: {
     fontSize: 48,
-    marginBottom: 20,
+    fontWeight: "bold",
+    marginBottom: 30,
   },
   input: {
-    height: 40,
-    borderColor: 'gray',
+    height: 50,
+    borderColor: "#CBD5E1",
     borderWidth: 1,
-    marginBottom: 20,
-    padding: 10,
-    width: '50%',
+    borderRadius: 10,
+    marginBottom: 25,
+    paddingHorizontal: 15,
+    width: "80%",
+    backgroundColor: "#FFFFFF",
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    width: "100%",
   },
 });
-

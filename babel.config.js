@@ -1,7 +1,7 @@
-module.exports = {
-    presets: [
-      "module:metro-react-native-babel-preset", // React Native-specific Babel preset
-      "@babel/preset-react",                   // JSX transformation support
-    ],
+module.exports = function (api) {
+  api.cache(true);
+
+  return {
+    presets: ["babel-preset-expo"],
   };
-  
+};

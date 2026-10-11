@@ -1,11 +1,13 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Clock } from './Clock';
-import { Alarm } from './Alarm';
-import { Timer } from './Timer';
-import { Settings } from './Setting';
-import { Ionicons } from '@expo/vector-icons';
+import React from "react";
+
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
+
+import { Clock } from "./Clock";
+import { Alarm } from "./Alarm";
+import { Timer } from "./Timer";
+import { Settings } from "./Setting";
 
 const Tab = createBottomTabNavigator();
 
@@ -14,20 +16,26 @@ export default function App() {
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
+          headerTitleAlign: "center",
+
+          tabBarActiveTintColor: "#2563EB",
+          tabBarInactiveTintColor: "#94A3B8",
+
           tabBarIcon: ({ focused, color, size }) => {
-            let iconName;
+            const icons = {
+              Clock: focused ? "time" : "time-outline",
+              Alarm: focused ? "alarm" : "alarm-outline",
+              Timer: focused ? "timer" : "timer-outline",
+              Settings: focused ? "settings" : "settings-outline",
+            } as const;
 
-            if (route.name === 'Clock') {
-              iconName = focused ? 'time' : 'time-outline';
-            } else if (route.name === 'Alarm') {
-              iconName = focused ? 'alarm' : 'alarm-outline';
-            } else if (route.name === 'Timer') {
-              iconName = focused ? 'timer' : 'timer-outline';
-            } else if (route.name === 'Settings') {
-              iconName = focused ? 'settings' : 'settings-outline';
-            }
-
-            return <Ionicons name={iconName} size={size} color={color} />;
+            return (
+              <Ionicons
+                name={icons[route.name as keyof typeof icons]}
+                size={size}
+                color={color}
+              />
+            );
           },
         })}
       >
@@ -39,4 +47,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-
